@@ -1,6 +1,6 @@
 # Quick Start
 
-Get Finance Governance running in your Databricks workspace in under 10 minutes.
+Get AutoGov running in your Databricks workspace in under 10 minutes.
 
 ## Prerequisites
 
@@ -20,8 +20,8 @@ Your Databricks workspace must have:
 ## Step 1 — Clone and Enter the Repository
 
 ```bash
-git clone <repo-url> finance-governance
-cd finance-governance
+git clone <repo-url> autogov
+cd autogov
 ```
 
 ## Step 2 — Authenticate with Databricks
@@ -59,13 +59,13 @@ The app stores all state (column memory, run history, classifications) in a Lake
 
 1. Navigate to **Catalog > Databases** in the workspace sidebar.
 2. Click **Create database**.
-3. Name it (e.g., `finance_governance_db`).
+3. Name it (e.g., `autogov_db`).
 
 **Option B — CLI:**
 
 ```bash
 databricks lakebase databases create \
-  --name finance_governance_db \
+  --name autogov_db \
   --catalog <your-catalog>
 ```
 
@@ -75,11 +75,11 @@ No manual schema setup is needed — the app auto-creates its tables on first st
 
 ```bash
 # Create the app
-databricks apps create finance-governance \
+databricks apps create autogov \
   --description "Unity Catalog governance automation"
 
 # Deploy with the Lakebase database attached
-databricks apps deploy finance-governance \
+databricks apps deploy autogov \
   --source-code-path . \
   --resource database=<your-lakebase-database-name>
 ```
@@ -91,7 +91,7 @@ This uploads your code, installs Python dependencies, injects the database conne
 ## Step 6 — Verify
 
 1. Open the **Apps** page in your workspace sidebar.
-2. Find **finance-governance** and wait for status **Running**.
+2. Find **autogov** and wait for status **Running**.
 3. Click the app URL.
 
 Or check via CLI:

@@ -1,6 +1,6 @@
 # Architecture
 
-Finance Governance is a full-stack Databricks App composed of a **FastAPI backend**, a **React frontend**, and a **Lakebase (managed PostgreSQL) database** for persistent state. The backend communicates with Databricks workspace APIs to scan Unity Catalog metadata, classify column sensitivity with a Foundation Model, and optionally enforce governance policies.
+AutoGov is a full-stack Databricks App composed of a **FastAPI backend**, a **React frontend**, and a **Lakebase (managed PostgreSQL) database** for persistent state. The backend communicates with Databricks workspace APIs to scan Unity Catalog metadata, classify column sensitivity with a Foundation Model, and optionally enforce governance policies.
 
 ## System Overview
 

@@ -9,10 +9,11 @@ from .config import get_oauth_token
 
 _pool: Optional[asyncpg.Pool] = None
 
-MEMORY_TABLE = "column_memory"
-TRAIL_TABLE = "run_trail"
-CLASSIFICATION_TABLE = "classification_results"
-NOTIFICATION_TABLE = "notification_candidates"
+APP_SCHEMA = "autogov"
+MEMORY_TABLE = f"{APP_SCHEMA}.column_memory"
+TRAIL_TABLE = f"{APP_SCHEMA}.run_trail"
+CLASSIFICATION_TABLE = f"{APP_SCHEMA}.classification_results"
+NOTIFICATION_TABLE = f"{APP_SCHEMA}.notification_candidates"
 
 # In-memory fallback when no Lakebase is attached
 _mem_memory: dict[str, dict] = {}        # keyed by (cat.schema.table.col)
@@ -59,6 +60,7 @@ async def init_schema():
         print("WARNING: PGHOST not set – skipping schema init. Attach a Lakebase database resource.")
         return
     async with pool.acquire() as conn:
+        await conn.execute(f"CREATE SCHEMA IF NOT EXISTS {APP_SCHEMA}")
         await conn.execute(f"""
             CREATE TABLE IF NOT EXISTS {MEMORY_TABLE} (
                 table_catalog   TEXT NOT NULL,

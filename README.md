@@ -1,10 +1,10 @@
-# Finance Governance
+# AutoGov
 
 Automated data governance for Databricks Unity Catalog. Scans your catalog, uses an LLM to classify column sensitivity, and applies tags plus access policies -- so you don't have to do it by hand.
 
 ## The Problem
 
-Financial services teams manage hundreds of tables with thousands of columns containing sensitive data: customer PII, payment card numbers, compensation figures, session tokens. As data grows, keeping governance current becomes a losing battle:
+Organizations managing data at scale face a governance challenge that grows faster than any team can keep up with:
 
 - **New tables appear constantly** -- data engineers create tables faster than governance teams can review them.
 - **Sensitive columns hide in plain sight** -- a column named `ssn` is obvious, but `field_7` containing credit scores is not.
@@ -15,7 +15,7 @@ The result: data teams either slow down to wait for governance reviews, or move 
 
 ## The Solution
 
-Finance Governance automates the entire lifecycle:
+AutoGov automates the entire lifecycle:
 
 1. **Scan** -- Reads `information_schema.columns` across one or all catalogs to build a complete column inventory.
 2. **Diff** -- Compares the current scan against a stored snapshot (in Lakebase) to identify only what changed: new columns, updated columns, deleted columns.
@@ -73,10 +73,10 @@ databricks auth login --host https://<your-workspace-url>
 #    Do this via the Databricks UI: Catalog > Databases > Create
 
 # 4. Create and deploy the app
-databricks apps create finance-governance \
+databricks apps create autogov \
   --description "Unity Catalog governance automation"
 
-databricks apps deploy finance-governance \
+databricks apps deploy autogov \
   --source-code-path .
 ```
 
@@ -113,7 +113,7 @@ cd frontend && npm run dev
 
 ## Seed Data
 
-The `seed_data.sql` file creates 7 tables in a `trial` catalog that cover all sensitivity categories:
+The `seed_data.sql` file creates sample tables that cover all sensitivity categories. You can customize the catalog and schema names in the SQL before running it.
 
 | Table | Sensitivity |
 |-------|------------|
