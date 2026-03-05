@@ -20,3 +20,8 @@ env:
 
   - name: SERVING_ENDPOINT
     value: databricks-claude-sonnet-4-5
+
+resources:
+  - name: database
+    database:
+      name: finance-governance
