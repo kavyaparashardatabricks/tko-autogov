@@ -15,10 +15,13 @@ CLASSIFICATION_TABLE = "classification_results"
 NOTIFICATION_TABLE = "notification_candidates"
 
 
-async def get_pool() -> asyncpg.Pool:
+async def get_pool() -> Optional[asyncpg.Pool]:
     global _pool
     if _pool is not None:
         return _pool
+
+    if not os.environ.get("PGHOST"):
+        return None
 
     token = get_oauth_token()
     _pool = await asyncpg.create_pool(
@@ -46,6 +49,9 @@ async def refresh_pool():
 async def init_schema():
     """Create Lakebase tables if they do not exist."""
     pool = await get_pool()
+    if pool is None:
+        print("WARNING: PGHOST not set – skipping schema init. Attach a Lakebase database resource.")
+        return
     async with pool.acquire() as conn:
         await conn.execute(f"""
             CREATE TABLE IF NOT EXISTS {MEMORY_TABLE} (
@@ -109,6 +115,8 @@ async def init_schema():
 
 async def load_memory(catalog: str | None = None) -> list[dict]:
     pool = await get_pool()
+    if pool is None:
+        return []
     async with pool.acquire() as conn:
         if catalog:
             rows = await conn.fetch(
@@ -123,6 +131,8 @@ async def upsert_memory(records: list[dict]):
     if not records:
         return
     pool = await get_pool()
+    if pool is None:
+        return
     async with pool.acquire() as conn:
         await conn.executemany(
             f"""
@@ -152,6 +162,8 @@ async def delete_memory(records: list[dict]):
     if not records:
         return
     pool = await get_pool()
+    if pool is None:
+        return
     async with pool.acquire() as conn:
         for r in records:
             await conn.execute(
@@ -169,6 +181,8 @@ async def delete_memory(records: list[dict]):
 
 async def insert_trail(run: dict):
     pool = await get_pool()
+    if pool is None:
+        return
     async with pool.acquire() as conn:
         await conn.execute(
             f"""
@@ -186,6 +200,8 @@ async def insert_trail(run: dict):
 
 async def update_trail(run_id: str, **fields):
     pool = await get_pool()
+    if pool is None:
+        return
     sets = []
     vals = []
     idx = 1
@@ -205,6 +221,8 @@ async def update_trail(run_id: str, **fields):
 
 async def get_trails(limit: int = 50) -> list[dict]:
     pool = await get_pool()
+    if pool is None:
+        return []
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             f"SELECT * FROM {TRAIL_TABLE} ORDER BY started_at DESC LIMIT $1", limit
@@ -220,6 +238,8 @@ async def insert_classifications(records: list[dict]):
     if not records:
         return
     pool = await get_pool()
+    if pool is None:
+        return
     async with pool.acquire() as conn:
         await conn.executemany(
             f"""
@@ -244,6 +264,8 @@ async def insert_classifications(records: list[dict]):
 
 async def get_classifications(run_id: str) -> list[dict]:
     pool = await get_pool()
+    if pool is None:
+        return []
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             f"SELECT * FROM {CLASSIFICATION_TABLE} WHERE run_id = $1 ORDER BY id", run_id
@@ -259,6 +281,8 @@ async def insert_notification_candidates(records: list[dict]):
     if not records:
         return
     pool = await get_pool()
+    if pool is None:
+        return
     async with pool.acquire() as conn:
         await conn.executemany(
             f"""

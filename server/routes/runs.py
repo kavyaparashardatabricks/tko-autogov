@@ -1,8 +1,14 @@
+import logging
+import traceback
+
 from fastapi import APIRouter, BackgroundTasks
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from ..governance.pipeline import run_pipeline
 from .. import db
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -18,12 +24,19 @@ class RunRequest(BaseModel):
 @router.post("/run")
 async def start_run(req: RunRequest, background_tasks: BackgroundTasks):
     """Kick off a governance scan pipeline run."""
-    result = await run_pipeline(
-        catalog=req.catalog,
-        mode=req.mode,
-        group_names=req.group_names,
-    )
-    return result
+    try:
+        result = await run_pipeline(
+            catalog=req.catalog,
+            mode=req.mode,
+            group_names=req.group_names,
+        )
+        return result
+    except Exception as e:
+        logger.exception("Pipeline run failed")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e), "traceback": traceback.format_exc()},
+        )
 
 
 @router.get("/runs")

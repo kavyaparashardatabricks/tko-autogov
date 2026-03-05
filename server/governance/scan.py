@@ -39,7 +39,7 @@ def scan_columns(client: WorkspaceClient, catalog: str | None = None) -> list[di
     result = client.statement_execution.execute_statement(
         statement=query,
         warehouse_id=_get_warehouse_id(client),
-        wait_timeout="120s",
+        wait_timeout="50s",
     )
 
     columns: list[str] = [
