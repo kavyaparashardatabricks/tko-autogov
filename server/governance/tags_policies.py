@@ -13,11 +13,11 @@ GOVERNANCE_SCHEMA = "governance_udfs"
 TAG_KEY = "sensitivity"
 
 LABEL_TO_TAG_VALUE = {
-    "pii": "pii",
-    "pci": "pci",
-    "confidential": "confidential",
-    "time_sensitive": "time_sensitive",
-    "public": "public",
+    "pii": "PII",
+    "pci": "PII",
+    "confidential": "CONFIDENTIAL",
+    "time_sensitive": "HIGHLYSENSITIVE",
+    "public": None,
 }
 
 # ---------------------------------------------------------------------------
@@ -39,18 +39,18 @@ def apply_tags(
             continue
 
         fqn = f"`{cls.table_catalog}`.`{cls.table_schema}`.`{cls.table_name}`"
+        applied_values: set[str] = set()
         for label in non_public:
-            tag_value = LABEL_TO_TAG_VALUE.get(label, label)
+            tag_value = LABEL_TO_TAG_VALUE.get(label)
+            if not tag_value or tag_value in applied_values:
+                continue
+            applied_values.add(tag_value)
             stmt = (
                 f"ALTER TABLE {fqn} ALTER COLUMN `{cls.column_name}` "
                 f"SET TAGS ('{TAG_KEY}' = '{tag_value}')"
             )
             try:
-                client.statement_execution.execute_statement(
-                    statement=stmt,
-                    warehouse_id=wh_id,
-                    wait_timeout="30s",
-                )
+                _exec(client, wh_id, stmt)
                 applied.append({
                     "action": "tag",
                     "column": f"{fqn}.{cls.column_name}",
@@ -277,8 +277,15 @@ def apply_time_based_filters(
 
 
 def _exec(client: WorkspaceClient, wh_id: str, stmt: str):
-    client.statement_execution.execute_statement(
+    result = client.statement_execution.execute_statement(
         statement=stmt,
         warehouse_id=wh_id,
-        wait_timeout="60s",
+        wait_timeout="50s",
     )
+    if result.status and result.status.state:
+        state_val = result.status.state.value if hasattr(result.status.state, 'value') else str(result.status.state)
+        if state_val == "FAILED":
+            error_msg = ""
+            if result.status.error:
+                error_msg = getattr(result.status.error, 'message', str(result.status.error))
+            raise RuntimeError(f"SQL statement failed: {error_msg}\nStatement: {stmt[:200]}")
