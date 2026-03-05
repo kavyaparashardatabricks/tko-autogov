@@ -14,6 +14,12 @@ TRAIL_TABLE = "run_trail"
 CLASSIFICATION_TABLE = "classification_results"
 NOTIFICATION_TABLE = "notification_candidates"
 
+# In-memory fallback when no Lakebase is attached
+_mem_memory: dict[str, dict] = {}        # keyed by (cat.schema.table.col)
+_mem_trails: list[dict] = []
+_mem_classifications: list[dict] = []
+_mem_notifications: list[dict] = []
+
 
 async def get_pool() -> Optional[asyncpg.Pool]:
     global _pool
@@ -116,7 +122,10 @@ async def init_schema():
 async def load_memory(catalog: str | None = None) -> list[dict]:
     pool = await get_pool()
     if pool is None:
-        return []
+        rows = list(_mem_memory.values())
+        if catalog:
+            rows = [r for r in rows if r.get("table_catalog") == catalog]
+        return rows
     async with pool.acquire() as conn:
         if catalog:
             rows = await conn.fetch(
@@ -132,6 +141,9 @@ async def upsert_memory(records: list[dict]):
         return
     pool = await get_pool()
     if pool is None:
+        for r in records:
+            key = f"{r['table_catalog']}.{r['table_schema']}.{r['table_name']}.{r['column_name']}"
+            _mem_memory[key] = {**r, "last_seen_at": datetime.now(timezone.utc).isoformat()}
         return
     async with pool.acquire() as conn:
         await conn.executemany(
@@ -163,6 +175,9 @@ async def delete_memory(records: list[dict]):
         return
     pool = await get_pool()
     if pool is None:
+        for r in records:
+            key = f"{r['table_catalog']}.{r['table_schema']}.{r['table_name']}.{r['column_name']}"
+            _mem_memory.pop(key, None)
         return
     async with pool.acquire() as conn:
         for r in records:
@@ -182,6 +197,17 @@ async def delete_memory(records: list[dict]):
 async def insert_trail(run: dict):
     pool = await get_pool()
     if pool is None:
+        _mem_trails.insert(0, {
+            "run_id": run["run_id"],
+            "started_at": (run.get("started_at") or datetime.now(timezone.utc)).isoformat(),
+            "finished_at": None,
+            "catalogs": run["catalogs"],
+            "mode": run["mode"],
+            "changes_detected": None,
+            "suggestions": None,
+            "applied": None,
+            "notification_status": run.get("notification_status", "deferred"),
+        })
         return
     async with pool.acquire() as conn:
         await conn.execute(
@@ -201,6 +227,13 @@ async def insert_trail(run: dict):
 async def update_trail(run_id: str, **fields):
     pool = await get_pool()
     if pool is None:
+        for entry in _mem_trails:
+            if entry["run_id"] == run_id:
+                for k, v in fields.items():
+                    if isinstance(v, datetime):
+                        v = v.isoformat()
+                    entry[k] = v
+                break
         return
     sets = []
     vals = []
@@ -222,7 +255,7 @@ async def update_trail(run_id: str, **fields):
 async def get_trails(limit: int = 50) -> list[dict]:
     pool = await get_pool()
     if pool is None:
-        return []
+        return _mem_trails[:limit]
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             f"SELECT * FROM {TRAIL_TABLE} ORDER BY started_at DESC LIMIT $1", limit
@@ -239,6 +272,7 @@ async def insert_classifications(records: list[dict]):
         return
     pool = await get_pool()
     if pool is None:
+        _mem_classifications.extend(records)
         return
     async with pool.acquire() as conn:
         await conn.executemany(
@@ -265,7 +299,7 @@ async def insert_classifications(records: list[dict]):
 async def get_classifications(run_id: str) -> list[dict]:
     pool = await get_pool()
     if pool is None:
-        return []
+        return [r for r in _mem_classifications if r.get("run_id") == run_id]
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             f"SELECT * FROM {CLASSIFICATION_TABLE} WHERE run_id = $1 ORDER BY id", run_id
@@ -282,6 +316,7 @@ async def insert_notification_candidates(records: list[dict]):
         return
     pool = await get_pool()
     if pool is None:
+        _mem_notifications.extend(records)
         return
     async with pool.acquire() as conn:
         await conn.executemany(

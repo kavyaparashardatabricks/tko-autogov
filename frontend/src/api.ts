@@ -23,8 +23,10 @@ export interface RunResult {
   catalog: string;
   mode: string;
   columns_scanned: number;
+  tables_scanned: number;
   diff: { new_count: number; updated_count: number; deleted_count: number };
   classifications_count: number;
+  label_counts: Record<string, number>;
   suggestions: Suggestion[];
   applied: AppliedAction[];
   pii_pci_candidates: number;
@@ -49,13 +51,23 @@ export interface AppliedAction {
   error?: string;
 }
 
+export interface TrailChanges {
+  new_count: number;
+  updated_count: number;
+  deleted_count: number;
+  columns_scanned?: number;
+  tables_scanned?: number;
+  classifications_count?: number;
+  label_counts?: Record<string, number>;
+}
+
 export interface TrailEntry {
   run_id: string;
   started_at: string;
   finished_at: string | null;
   catalogs: string;
   mode: string;
-  changes_detected: Record<string, number> | null;
+  changes_detected: TrailChanges | null;
   suggestions: Suggestion[] | null;
   applied: AppliedAction[] | null;
   notification_status: string;

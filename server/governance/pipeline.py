@@ -60,18 +60,35 @@ async def run_pipeline(
     diff = compute_diff(current, memory)
     logger.info("[%s] Diff: %s", run_id, diff.summary())
 
-    await db.update_trail(run_id, changes_detected=diff.summary())
+    # Compute scan stats
+    tables_scanned = len({
+        (r["table_catalog"], r["table_schema"], r["table_name"])
+        for r in current
+    })
 
-    # 3. Classify new + updated columns
-    columns_to_classify = diff.new + diff.updated
+    scan_stats = {
+        **diff.summary(),
+        "columns_scanned": len(current),
+        "tables_scanned": tables_scanned,
+    }
+    await db.update_trail(run_id, changes_detected=scan_stats)
+
+    # 3. Classify columns
+    #    - suggest mode: only classify new/updated (incremental)
+    #    - agent mode:   classify ALL columns so we can apply tags/policies
+    #                    even if a prior suggest run already updated memory
+    if mode == "agent":
+        columns_to_classify = current
+    else:
+        columns_to_classify = diff.new + diff.updated
+
     classifications: list[ColumnClassification] = []
 
     if columns_to_classify:
-        logger.info("[%s] Classifying %d columns", run_id, len(columns_to_classify))
+        logger.info("[%s] Classifying %d columns (mode=%s)", run_id, len(columns_to_classify), mode)
         classifier = get_classifier()
         classifications = classifier.classify(columns_to_classify)
 
-        # Persist classifications
         cls_records = []
         for cls in classifications:
             cls_records.append({
@@ -87,9 +104,18 @@ async def run_pipeline(
             })
         await db.insert_classifications(cls_records)
 
-    # Build suggestions
+    # Build suggestions and compute label breakdown
     suggestions = _build_suggestions(classifications)
-    await db.update_trail(run_id, suggestions=suggestions)
+
+    label_counts: dict[str, int] = {}
+    for cls in classifications:
+        for label in cls.labels:
+            if label != "public":
+                label_counts[label] = label_counts.get(label, 0) + 1
+
+    scan_stats["classifications_count"] = len(classifications)
+    scan_stats["label_counts"] = label_counts
+    await db.update_trail(run_id, changes_detected=scan_stats, suggestions=suggestions)
 
     # Store notification candidates for PII/PCI findings (deferred delivery)
     pii_pci_notifications = []
@@ -147,8 +173,10 @@ async def run_pipeline(
         "catalog": catalogs_label,
         "mode": mode,
         "columns_scanned": len(current),
+        "tables_scanned": tables_scanned,
         "diff": diff.summary(),
         "classifications_count": len(classifications),
+        "label_counts": label_counts,
         "suggestions": suggestions,
         "applied": applied_actions,
         "pii_pci_candidates": len(pii_pci_notifications),

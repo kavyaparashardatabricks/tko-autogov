@@ -31,12 +31,22 @@ export default function Results({ result }: Props) {
         <h2 className="text-sm font-medium text-gray-300 uppercase tracking-wider mb-3">
           Run {result.run_id}
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Stat label="Columns scanned" value={result.columns_scanned} />
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <Stat label="Tables" value={result.tables_scanned} />
+          <Stat label="Columns" value={result.columns_scanned} />
           <Stat label="New" value={result.diff.new_count} color="text-green-400" />
           <Stat label="Updated" value={result.diff.updated_count} color="text-yellow-400" />
           <Stat label="Deleted" value={result.diff.deleted_count} color="text-red-400" />
         </div>
+
+        {result.diff.new_count === 0 && result.diff.updated_count === 0 && result.diff.deleted_count === 0 && (
+          <div className="flex items-center gap-2 text-sm text-green-400 bg-green-900/20 border border-green-800/40 rounded-lg px-4 py-2 mt-3">
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            No changes since last scan — no new recommendations needed
+          </div>
+        )}
       </div>
 
       {/* Suggestions */}
